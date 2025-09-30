@@ -41,6 +41,78 @@ function initializeDatabase() {
       if (err) console.error('Błąd podczas tworzenia tabeli \'channels\':', err.message);
       else console.log('Tabela \'channels\' jest gotowa.');
     });
+
+    // Tabela dla cooldownów komend
+    db.run(`
+      CREATE TABLE IF NOT EXISTS command_cooldowns (
+        command_name TEXT NOT NULL PRIMARY KEY,
+        duration_seconds INTEGER NOT NULL
+      );
+    `, (err) => {
+      if (err) console.error('Błąd podczas tworzenia tabeli \'command_cooldowns\':', err.message);
+      else console.log('Tabela \'command_cooldowns\' jest gotowa.');
+    });
+
+    // Tabela dla aliasów komend
+    db.run(`
+      CREATE TABLE IF NOT EXISTS command_aliases (
+        alias_name TEXT NOT NULL PRIMARY KEY,
+        base_command TEXT NOT NULL
+      );
+    `, (err) => {
+      if (err) console.error('Błąd podczas tworzenia tabeli \'command_aliases\':', err.message);
+      else console.log('Tabela \'command_aliases\' jest gotowa.');
+    });
+  });
+}
+
+// --- Zarządzanie Cooldownami Komend ---
+
+function setCommandCooldown(commandName, durationSeconds) {
+  return new Promise((resolve, reject) => {
+    const sql = `INSERT OR REPLACE INTO command_cooldowns (command_name, duration_seconds) VALUES (?, ?);`;
+    db.run(sql, [commandName, durationSeconds], (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+function getAllCommandCooldowns() {
+  return new Promise((resolve, reject) => {
+    const sql = `SELECT command_name, duration_seconds FROM command_cooldowns;`;
+    db.all(sql, [], (err, rows) => {
+      if (err) reject(err);
+      else {
+        const cooldowns = new Map(rows.map(row => [row.command_name, row.duration_seconds]));
+        resolve(cooldowns);
+      }
+    });
+  });
+}
+
+// --- Zarządzanie Aliasami Komend ---
+
+function setCommandAlias(aliasName, baseCommand) {
+  return new Promise((resolve, reject) => {
+    const sql = `INSERT OR REPLACE INTO command_aliases (alias_name, base_command) VALUES (?, ?);`;
+    db.run(sql, [aliasName, baseCommand], (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+function getAllCommandAliases() {
+  return new Promise((resolve, reject) => {
+    const sql = `SELECT alias_name, base_command FROM command_aliases;`;
+    db.all(sql, [], (err, rows) => {
+      if (err) reject(err);
+      else {
+        const aliases = new Map(rows.map(row => [row.alias_name, row.base_command]));
+        resolve(aliases);
+      }
+    });
   });
 }
 
@@ -123,5 +195,9 @@ module.exports = {
   getLoLAccount, 
   addChannel, 
   removeChannel, 
-  getAllChannels 
+  getAllChannels,
+  setCommandCooldown,
+  getAllCommandCooldowns,
+  setCommandAlias,
+  getAllCommandAliases
 };

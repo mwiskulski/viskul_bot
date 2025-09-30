@@ -38,6 +38,26 @@ async function callRiotApi(region, path) {
   }
 }
 
+async function callMatchApi(matchRegion, path) {
+  if (!RIOT_API_KEY) {
+    throw new Error('RIOT_API_KEY nie jest skonfigurowany.');
+  }
+
+  const url = `https://${matchRegion}.api.riotgames.com` + path;
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'X-Riot-Token': RIOT_API_KEY
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Błąd podczas zapytania do API meczów Riot Games (${url}):`, error.response?.data || error.message);
+    throw error;
+  }
+}
+
 function mapServerToApiRegion(server) {
   switch (server.toLowerCase()) {
     case 'eune':
@@ -123,16 +143,22 @@ async function getLeagueEntriesBySummonerId(region, summonerId) {
   return callRiotApi(mapServerToApiRegion(region), `/lol/league/v4/entries/by-summoner/${summonerId}`);
 }
 
-async function getMatchIdsByPuuid(region, puuid, count = 1) {
-  // Match-V5 API uses different regional routing (americas, asia, europe)
+async function getMatchIdsByPuuid(region, puuid, options = {}) {
+  const { count = 10, queue = null } = options; // queue can be 420 for ranked solo
   const matchRegion = getMatchRegion(mapServerToApiRegion(region));
-  return callRiotApi(matchRegion, `/lol/match/v5/matches/by-puuid/${puuid}/ids?count=${count}`);
+  
+  let path = `/lol/match/v5/matches/by-puuid/${puuid}/ids?count=${count}`;
+  if (queue) {
+    path += `&queue=${queue}`;
+  }
+  
+  return callMatchApi(matchRegion, path);
 }
 
 async function getMatchById(region, matchId) {
   const matchRegion = getMatchRegion(mapServerToApiRegion(region));
-  return callRiotApi(matchRegion, `/lol/match/v5/matches/${matchId}`);
+  return callMatchApi(matchRegion, `/lol/match/v5/matches/${matchId}`);
 }
 
 // module.exports at the very end
-module.exports = { getAccountByRiotId, getSummonerByPuuid, getSummonerByName, getLeagueEntriesBySummonerId, getMatchIdsByPuuid, getMatchById };
+module.exports = { getAccountByRiotId, getSummonerByPuuid, getSummonerByName, getLeagueEntriesBySummonerId, getMatchIdsByPuuid, getMatchById, callMatchApi };
